@@ -1,0 +1,132 @@
+<resources>
+    <string name="app_name">RescueService</string>
+    <string name="accessibility_service_label">Служба спасения (Спец. возможности)</string>
+    <string name="notification_listener_service_label">Служба спасения (Доступ к уведомлениям)</string>
+
+    <string name="main_title">Настройка Службы Спасения</string>
+    <string name="main_subtitle">Для работы помощника нужно предоставить несколько разрешений.
+Пожалуйста, активируйте все переключатели ниже.</string>
+
+    <string name="main_button_accessibility_title">Спец.
+возможности</string>
+    <string name="main_button_accessibility_instruction">Для отображения плавающей кнопки и помощи на экране.</string>
+
+    <string name="main_button_notification_title">Включить доступ к уведомлениям</string>
+    <string name="main_button_notification_instruction">Для оповещений о звонках, когда на телефоне выключен звук.</string>
+
+    <string name="main_button_battery_title">Выключить оптимизацию батареи</string>
+    <string name="main_button_battery_instruction">Чтобы система не выключала сервис в фоновом режиме.</string>
+
+    <string name="permissions_not_all_granted_message">Пожалуйста, включите все разрешения для корректной работы.</string>
+    <string name="permissions_all_granted_message">Все разрешения предоставлены!
+Помощник готов к работе. Вы можете закрыть это окно.</string>
+
+    <string name="main_status_accessibility_on">Спец.
+возможности: ВКЛЮЧЕНЫ</string>
+    <string name="main_status_accessibility_off">Спец. возможности: выключены</string>
+    <string name="main_status_notification_on">Доступ к уведомлениям: ВКЛЮЧЕН</string>
+    <string name="main_status_notification_off">Доступ к уведомлениям: выключен</string>
+    <string name="main_status_battery_on">Оптимизация батареи: ОТКЛЮЧЕНА (это хорошо)</string>
+    <string name="main_status_battery_off">Оптимизация батареи: включена (может мешать работе)</string>
+
+    <string name="alert_airplane_mode_on">Включен режим полета.
+В этом режиме не работает связь и интернет.</string>
+    <string name="alert_low_battery">Внимание, батарея почти разрядилась.
+Телефон скоро выключится.</string>
+    <string name="alert_low_battery_worker">Батарея телефона разрядилась.
+Осталось меньше 15 процентов.</string>
+    <string name="alert_incoming_call_muted">Внимание, вам звонят, но звук на телефоне выключен.</string>
+    <string name="alert_no_internet">Нет доступа к интернету.</string>
+
+    <string name="dialog_accessibility_title">Шаг 1: Включение Службы Спасения</string>
+    <string name="dialog_accessibility_message">Вам нужно вручную включить наш сервис.\n\nЧто делать:\n1.
+Нажмите «Перейти в настройки» ниже.\n2. В системном меню выберите «Установленные приложения» (Installed apps).\n3. Найдите и выберите «Rescue Service (Accessibility)».\n4.
+Активируйте главный переключатель (On).</string>
+
+    <string name="dialog_notification_title">Шаг 2: Доступ к уведомлениям</string>
+    <string name="dialog_notification_message">Чтобы мы могли предупреждать о звонках в беззвучном режиме, нужен доступ к уведомлениям.\n\nЧто делать:\n1.
+Нажмите «Перейти в настройки» ниже.\n2. В открывшемся списке найдите «Rescue Service».\n3.
+Активируйте переключатель.</string>
+
+    <string name="dialog_battery_title">Шаг 3: Отключение оптимизации батареи</string>
+    <string name="dialog_battery_message">Чтобы система не останавливала помощника в фоне, отключите для него экономию заряда.\n\nЧто делать:\n1.
+Нажмите «Перейти в настройки» ниже.\n2. Во всплывающем системном окне выберите «Разрешить» (Allow).</string>
+
+    <string name="dialog_common_positive">Перейти в настройки</string>
+    <string name="dialog_common_negative">Отмена</string>
+
+    <string name="anchor_notification_title">Завершите настройку RescueService</string>
+    <string name="anchor_notification_text">Нажмите, чтобы активировать вашего голосового помощника.</string>
+
+    <string name="dialog_setup_incomplete_title">Настройка не завершена</string>
+    <string name="dialog_setup_incomplete_message">Похоже, вы предоставили не все разрешения.
+Для корректной работы помощника, пожалуйста, завершите настройку.</string>
+    <string name="dialog_setup_incomplete_later">Позже</string>
+
+    <string name="main_button_overlay_title">Показывать поверх других окон</string>
+    <string name="main_status_overlay_on">Поверх других окон: РАЗРЕШЕНО</string>
+    <string name="main_status_overlay_off">Поверх других окон: выключено</string>
+
+    <string name="default_user_name">Мой господин</string>
+
+    <string name="requesting_base_permissions">Запрашиваем базовые разрешения…</string>
+    <string name="show_above_other_apps_title">Показывать поверх других окон</string>
+    <string name="show_above_other_apps_message">Чтобы работала подсветка элементов, включите разрешение «Показывать поверх других окон» для RescueService.</string>
+    <string name="setup_complete_title">Настройка завершена!</string>
+
+    <string name="welcome_message">Здравствуйте.
+Я ваш голосовой помощник. Чтобы наше общение было удобным, скажите, пожалуйста, как к вам обращаться?</string>
+    <string name="language_set_confirmation">Язык установлен на русский.</string>
+    <string name="llm_error_fallback">Я немного запуталась. Простите меня. Давайте попробуем начать сначала.</string>
+    <string name="choose_name_prompt">Хорошо, какое имя вы хотите использовать?</string>
+    <string name="choose_language_prompt">Пожалуйста, назовите язык, на который вы хотите переключиться.</string>
+    <string name="choose_speed_prompt">Пожалуйста, выберите скорость речи.
+Я могу говорить медленнее или быстрее.</string>
+    <string name="didnt_understand_rephrase">Простите, я вас не понял. Попробуйте сформулировать иначе.
+Скажите \'имя\', \'язык\' или \'скорость\'.</string>
+    <string name="language_not_recognized_reprompt">Язык \'%1$s\' не поддерживается.
+Выберите между русским и английским языком пожалуйста.</string>
+    <string name="language_not_recognized_exit">Язык не распознан.
+Возвращаюсь в основное меню.</string>
+    <string name="didnt_understand_speed">Не понял.
+Пожалуйста, скажите \'быстрее\' или \'медленнее\'.</string>
+    <string name="command_not_recognized_exit">Команда не распознана.
+Возвращаюсь в основное меню.</string>
+    <string name="name_confirmation">Отлично, я буду называть вас %1$s.</string>
+    <string name="speed_confirmation">Готово, скорость речи теперь %1$s.</string>
+    <string name="default_name_confirmation">Поскольку вы не назвали имя, я буду обращаться к вам: %1$s.</string>
+    <string name="final_settings_confirmation">Я всё настроила.\nБуду называть вас: %1$s.\nЯзык общения: %2$s.\nСкорость речи: %3$s.\nЕсли вам понадобится моя помощь, просто нажмите на красную кнопку на главном экране.</string>
+    <string name="language_name">русский</string>
+    <string name="speech_rate_slow">медленная</string>
+    <string name="speech_rate_normal">средняя</string>
+    <string name="speech_rate_fast">быстрая</string>
+    <string name="open_settings_prompt">Открываю настройки.
+Могу изменить имя, язык и скорость речи. Скажите, что изменить.</string>
+    <string name="speak_faster_confirmation">Готово, говорю быстрее.</string>
+    <string name="speak_slower_confirmation">Готово, говорю медленнее.</string>
+
+    <string name="im_listening">Я вас слушаю, %1$s.</string>
+    <string name="screen_context_unavailable">Я пока не вижу, что у вас открыто на экране. Пожалуйста, нажмите на кнопку ещё раз.</string>
+    <string name="screen_context_app">Приложение: </string>
+    <string name="screen_context_unknown">Неизвестно</string>
+    <string name="screen_context_text">- Текст: </string>
+    <string name="screen_context_description">(Описание: </string>
+
+    <string name="speech_recognizer_error">Вокруг шумно, и я вас не расслышала. Пожалуйста, скажите это ещё раз, чуть громче.</string>
+
+    <string name="server_error">Ой, что-то связь прервалась. Такое бывает. Давайте попробуем снова?</string>
+    <string name="no_connection_error">Интернет сейчас очень слабый, мне трудно вас услышать. Давайте подождём минутку и попробуем снова.</string>
+
+    <string name="flow_enable_accessibility_step_1">Откройте
+настройки доступности на вашем устройстве.</string>
+    <string name="flow_enable_accessibility_step_1_timeout">Откройте экран доступности, чтобы продолжить настройку.</string>
+    <string name="flow_enable_accessibility_step_2">Найдите службу RescueService и нажмите на неё.</string>
+    <string name="flow_enable_accessibility_step_2_timeout">Прокрутите список и найдите RescueService.</string>
+    <string name="flow_enable_accessibility_step_3">Включите службу RescueService, нажав переключатель.</string>
+    <string name="flow_enable_accessibility_step_3_timeout">Нажмите переключатель, чтобы включить службу.</string>
+
+    <string name="flow_enable_notifications_step_1">Перейдите в настройки уведомлений вашего устройства.</string>
+    <string name="flow_enable_notifications_step_1_timeout">Пожалуйста, откройте экран уведомлений.</string>
+    <string name="flow_enable_notifications_step_2">Найдите RescueService и включите уведомления.</string>
+    <string name="flow_enable_notifications_step_2_timeout">Нажмите переключатель, чтобы разрешить уведомления для RescueService.</string>
+</resources>

@@ -1,0 +1,66 @@
+<resources>
+    <string name="app_name">RescueService</string>
+    <string name="accessibility_service_label">Rescue Service (Accessibility)</string>
+    <string name="notification_listener_service_label">Rescue Service (Notification Access)</string>
+
+    <string name="main_title">Rescue Service Setup</string>
+    <string name="main_subtitle">To make the assistant work, please enable the permissions below.</string>
+
+    <string name="main_button_accessibility_title">Accessibility</string>
+    <string name="main_button_accessibility_instruction">For the floating button and on-screen assistance.</string>
+
+    <string name="main_button_notification_title">Enable Notification Access</string>
+    <string name="main_button_notification_instruction">For call alerts when the phone is in silent mode.</string>
+
+    <string name="main_button_battery_title">Disable Battery Optimization</string>
+    <string name="main_button_battery_instruction">Prevents the system from stopping the service in the background.</string>
+
+    <string name="permissions_not_all_granted_message">Please enable all required permissions for correct operation.</string>
+    <string name="permissions_all_granted_message">All permissions are granted! The assistant is ready. You can close this window.</string>
+
+    <string name="main_status_accessibility_on">Accessibility: ON</string>
+    <string name="main_status_accessibility_off">Accessibility: off</string>
+    <string name="main_status_notification_on">Notification access: ON</string>
+    <string name="main_status_notification_off">Notification access: off</string>
+    <string name="main_status_battery_on">Battery optimization: DISABLED (good)</string>
+    <string name="main_status_battery_off">Battery optimization: enabled (may affect work)</string>
+
+    <string name="alert_airplane_mode_on">Airplane mode is on. Network and internet are unavailable.</string>
+    <string name="alert_low_battery">Warning, battery is almost empty. The phone may turn off soon.</string>
+    <string name="alert_low_battery_worker">The phone battery is low. Less than 15 percent remains.</string>
+    <string name="alert_incoming_call_muted">Warning, you have an incoming call but the phone is in silent mode.</string>
+    <string name="alert_no_internet">No internet connection.</string>
+
+    <!-- Dialogs with step-by-step instructions -->
+    <string name="dialog_accessibility_title">Step 1: Enable Rescue Service</string>
+    <string name="dialog_accessibility_message">You need to enable our service manually.\n\nWhat to do:\n1. Tap “Open Settings” below.\n2. In the system list, find “Rescue Service (Accessibility)”.\n3. Turn the main switch On.\n4. Confirm enabling the service.</string>
+
+    <string name="dialog_notification_title">Step 2: Notification Access</string>
+    <string name="dialog_notification_message">We need notification access to warn about calls in silent mode.\n\nWhat to do:\n1. Tap “Open Settings” below.\n2. Find “Rescue Service” in the list and enable notification access.\n3. Return to the app to continue.</string>
+
+    <string name="dialog_battery_title">Step 3: Disable Battery Optimization</string>
+    <string name="dialog_battery_message">Disable power saving for the app so it works reliably in the background.\n\nWhat to do:\n1. Tap “Open Settings” below.\n2. In the system prompt, choose “Allow”.</string>
+
+    <!-- Common dialog buttons -->
+    <string name="dialog_common_positive">Open Settings</string>
+    <string name="dialog_common_negative">Cancel</string>
+
+    <!-- Anchor notification -->
+    <string name="anchor_notification_title">Complete RescueService Setup</string>
+    <string name="anchor_notification_text">Tap to activate your voice assistant.</string>
+
+    <!-- Setup not complete -->
+    <string name="dialog_setup_incomplete_title">Setup Not Complete</string>
+    <string name="dialog_setup_incomplete_message">It looks like not all permissions were granted. To ensure proper operation, please finish the setup.</string>
+    <string name="dialog_setup_incomplete_later">Later</string>
+
+    <string name="main_button_overlay_title">Allow “Draw over other apps”</string>
+    <string name="main_status_overlay_on">Draw over other apps: ON</string>
+    <string name="main_status_overlay_off">Draw over other apps: OFF</string>
+    
+    <string name="llm_error_fallback">I got a little confused there. I am sorry. Let\'s try starting over.</string>
+    <string name="screen_context_unavailable">I can\'t quite see what is on your screen yet. Please press the button one more time.</string>
+    <string name="speech_recognizer_error">It\'s a bit noisy, and I didn\'t catch that. Could you say it again, a little louder?</string>
+    <string name="server_error">Oh, the connection slipped away for a moment. Shall we try again?</string>
+    <string name="no_connection_error">The signal is very weak right now, so I can\'t hear you well. Let\'s wait a moment and try again.</string>
+</resources>

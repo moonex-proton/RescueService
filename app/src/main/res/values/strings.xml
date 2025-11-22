@@ -1,0 +1,114 @@
+<resources>
+    <string name="app_name">RescueService</string>
+    <string name="accessibility_service_label">Rescue Service (Accessibility)</string>
+    <string name="notification_listener_service_label">Rescue Service (Notification Access)</string>
+
+    <string name="main_title">Rescue Service Setup</string>
+    <string name="main_subtitle">To make the assistant work, please enable the permissions below.</string>
+
+    <string name="main_button_accessibility_title">Accessibility</string>
+    <string name="main_button_accessibility_instruction">For the floating button and on-screen assistance.</string>
+
+    <string name="main_button_notification_title">Enable Notification Access</string>
+    <string name="main_button_notification_instruction">For call alerts when the phone is in silent mode.</string>
+
+    <string name="main_button_battery_title">Disable Battery Optimization</string>
+    <string name="main_button_battery_instruction">Prevents the system from stopping the service in the background.</string>
+
+    <string name="permissions_not_all_granted_message">Please enable all required permissions for correct operation.</string>
+    <string name="permissions_all_granted_message">All permissions are granted! The assistant is ready. You can close this window.</string>
+
+    <string name="main_status_accessibility_on">Accessibility: ON</string>
+    <string name="main_status_accessibility_off">Accessibility: off</string>
+    <string name="main_status_notification_on">Notification access: ON</string>
+    <string name="main_status_notification_off">Notification access: off</string>
+    <string name="main_status_battery_on">Battery optimization: DISABLED (good)</string>
+    <string name="main_status_battery_off">Battery optimization: enabled (may affect work)</string>
+
+    <string name="alert_airplane_mode_on">Airplane mode is on. Network and internet are unavailable.</string>
+    <string name="alert_low_battery">Warning, battery is almost empty. The phone may turn off soon.</string>
+    <string name="alert_low_battery_worker">The phone battery is low. Less than 15 percent remains.</string>
+    <string name="alert_incoming_call_muted">Warning, you have an incoming call but the phone is in silent mode.</string>
+    <string name="alert_no_internet">No internet connection.</string>
+
+    <!-- Dialogs with step-by-step instructions -->
+    <string name="dialog_accessibility_title">Step 1: Enable Rescue Service</string>
+    <string name="dialog_accessibility_message">You need to enable our service manually.\n\nWhat to do:\n1. Tap “Open Settings” below.\n2. In the system list, find “Rescue Service (Accessibility)”.\n3. Turn the main switch On.\n4. Confirm enabling the service.</string>
+
+    <string name="dialog_notification_title">Step 2: Notification Access</string>
+    <string name="dialog_notification_message">We need notification access to warn about calls in silent mode.\n\nWhat to do:\n1. Tap “Open Settings” below.\n2. Find “Rescue Service” in the list and enable notification access.\n3. Return to the app to continue.</string>
+
+    <string name="dialog_battery_title">Step 3: Disable Battery Optimization</string>
+    <string name="dialog_battery_message">Disable power saving for the app so it works reliably in the background.\n\nWhat to do:\n1. Tap “Open Settings” below.\n2. In the system prompt, choose “Allow”.</string>
+
+    <!-- Common dialog buttons -->
+    <string name="dialog_common_positive">Open Settings</string>
+    <string name="dialog_common_negative">Cancel</string>
+
+    <!-- Anchor notification -->
+    <string name="anchor_notification_title">Complete RescueService Setup</string>
+    <string name="anchor_notification_text">Tap to activate your voice assistant.</string>
+
+    <!-- Setup not complete -->
+    <string name="dialog_setup_incomplete_title">Setup Not Complete</string>
+    <string name="dialog_setup_incomplete_message">It looks like not all permissions were granted. To ensure proper operation, please finish the setup.</string>
+    <string name="dialog_setup_incomplete_later">Later</string>
+
+    <string name="main_button_overlay_title">Allow “Draw over other apps”</string>
+    <string name="main_status_overlay_on">Draw over other apps: ON</string>
+    <string name="main_status_overlay_off">Draw over other apps: OFF</string>
+
+    <string name="default_user_name">My Lord</string>
+
+    <string name="requesting_base_permissions">Requesting base permissions…</string>
+    <string name="show_above_other_apps_title">Show above other apps</string>
+    <string name="show_above_other_apps_message">To allow highlighting elements, enable the “Show above other apps” permission for RescueService.</string>
+    <string name="setup_complete_title">Setup complete!</string>
+
+    <string name="welcome_message">Hello. I am your voice assistant. To make our communication comfortable, please tell me how I should address you.</string>
+    <string name="language_set_confirmation">Language set to English.</string>
+    <string name="llm_error_fallback">Sorry, I\'ve encountered a problem. Please try again.</string>
+    <string name="choose_name_prompt">Okay, what name would you like to use?</string>
+    <string name="choose_language_prompt">Please state the language you\'d like to switch to.</string>
+    <string name="choose_speed_prompt">Please choose a speech speed. I can speak slower or faster.</string>
+    <string name="didnt_understand_rephrase">Sorry, I didn\'t catch that. Please rephrase. Say \'name\', \'language\', or \'speed\'.</string>
+    <string name="language_not_recognized_reprompt">\'%1$s\' language is not supported. Please choose between Russian and English.</string>
+    <string name="language_not_recognized_exit">Language not recognized. Returning to the main menu.</string>
+    <string name="didnt_understand_speed">I didn\'t understand. Please say \'faster\' or \'slower\'.</string>
+    <string name="command_not_recognized_exit">Command not recognized. Returning to the main menu.</string>
+    <string name="name_confirmation">Got it, I will call you %1$s.</string>
+    <string name="speed_confirmation">Done, speech rate is now %1$s.</string>
+    <string name="default_name_confirmation">Since you didn\'t provide a name, I will call you: %1$s.</string>
+    <string name="final_settings_confirmation">I\'ve set everything up.\nI will call you: %1$s.\nCommunication language: %2$s.\nSpeech rate: %3$s.\nIf you need my help, just press the red button on the main screen.</string>
+    <string name="language_name">english</string>
+    <string name="speech_rate_slow">slow</string>
+    <string name="speech_rate_normal">normal</string>
+    <string name="speech_rate_fast">fast</string>
+    <string name="open_settings_prompt">Opening settings. I can change your name, language, and speech rate. What would you like to adjust?</string>
+    <string name="speak_faster_confirmation">Done, speaking faster.</string>
+    <string name="speak_slower_confirmation">Done, speaking slower.</string>
+
+    <string name="im_listening">I\'m listening, %1$s.</string>
+    <string name="screen_context_unavailable">Screen unavailable.</string>
+    <string name="screen_context_app">Application: </string>
+    <string name="screen_context_unknown">Unknown</string>
+    <string name="screen_context_text">- Text: </string>
+    <string name="screen_context_description">(Description: </string>
+
+    <string name="speech_recognizer_error">Speech recognizer error.</string>
+
+    <string name="server_error">Sorry, there was a server error. Please try again later.</string>
+    <string name="no_connection_error">I couldn\'t connect to the server. Please check your internet connection.</string>
+
+    <string name="flow_enable_accessibility_step_1">Open the accessibility settings on your device.</string>
+    <string name="flow_enable_accessibility_step_1_timeout">Open the accessibility screen to continue setup.</string>
+    <string name="flow_enable_accessibility_step_2">Find the RescueService and tap on it.</string>
+    <string name="flow_enable_accessibility_step_2_timeout">Scroll down and find RescueService.</string>
+    <string name="flow_enable_accessibility_step_3">Enable the RescueService by tapping the switch.</string>
+    <string name="flow_enable_accessibility_step_3_timeout">Tap the switch to enable the service.</string>
+
+    <string name="flow_enable_notifications_step_1">Go to your device\'s notification settings.</string>
+    <string name="flow_enable_notifications_step_1_timeout">Please open the notification screen.</string>
+    <string name="flow_enable_notifications_step_2">Find RescueService and enable notifications.</string>
+    <string name="flow_enable_notifications_step_2_timeout">Tap the switch to allow notifications for RescueService.</string>
+</resources>
