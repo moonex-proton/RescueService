@@ -129,6 +129,7 @@ object LlmClient {
 
         return try {
             Log.d(TAG, "Sending stateful request [sessionId=$sessionId]: '${userText.take(120)}'")
+            Log.d(TAG, "Status JSON: $status")
 
             val response = client.post(SERVER_URL) {
                 contentType(ContentType.Application.Json)

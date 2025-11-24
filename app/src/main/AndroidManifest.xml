@@ -92,6 +92,10 @@
         <intent>
             <action android:name="android.speech.tts.TextToSpeech.Engine" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
 </manifest>

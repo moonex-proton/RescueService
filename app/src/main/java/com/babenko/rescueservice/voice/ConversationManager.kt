@@ -28,6 +28,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.util.Locale
 import java.util.UUID
 import kotlin.math.round
@@ -129,7 +131,7 @@ object ConversationManager {
                 }
 
                 // 2. Gather status and send the request through the new function
-                val statusJson = gatherDeviceStatus().toString() // Example, can be improved
+                val statusJson = Json.encodeToString(gatherDeviceStatus())
                 val llmResponse = LlmClient.assist(
                     sessionId = sessionId,
                     userText = userText,
