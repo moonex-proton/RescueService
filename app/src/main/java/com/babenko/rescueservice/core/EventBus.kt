@@ -14,6 +14,12 @@ data class TtsPlaybackFinished(val utteranceId: String) : AppEvent()
 // New event to request highlighting an element on the screen
 data class HighlightElementEvent(val selector: Map<String, String>) : AppEvent()
 
+data class ClickElementEvent(val selector: Map<String, String>) : AppEvent()
+
+data class GlobalActionEvent(val actionId: Int) : AppEvent()
+
+data class ScrollEvent(val direction: String) : AppEvent()
+
 
 /**
  * A singleton EventBus for exchanging messages between application components.

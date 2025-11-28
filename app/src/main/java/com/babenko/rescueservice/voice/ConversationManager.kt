@@ -1,5 +1,6 @@
 package com.babenko.rescueservice.voice
 
+import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
@@ -15,9 +16,12 @@ import android.speech.tts.TextToSpeech
 import android.util.Log
 import com.babenko.rescueservice.R
 import com.babenko.rescueservice.core.AssistantLifecycleManager
+import com.babenko.rescueservice.core.ClickElementEvent
 import com.babenko.rescueservice.core.EventBus
+import com.babenko.rescueservice.core.GlobalActionEvent
 import com.babenko.rescueservice.core.HighlightElementEvent
 import com.babenko.rescueservice.core.Logger
+import com.babenko.rescueservice.core.ScrollEvent
 import com.babenko.rescueservice.data.SettingsManager
 import com.babenko.rescueservice.llm.Command
 import com.babenko.rescueservice.llm.CommandParser
@@ -455,6 +459,7 @@ object ConversationManager {
         val am = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val cm = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val bm = appContext.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val km = appContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         val isAirplaneMode = Settings.Global.getInt(appContext.contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) != 0
         val network = cm.activeNetwork
         val capabilities = cm.getNetworkCapabilities(network)
@@ -470,6 +475,7 @@ object ConversationManager {
             else -> "NORMAL"
         }
         val batteryPct = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        val isLocked = km.isKeyguardLocked
 
         // --- НОВАЯ СТРОКА: Получаем список приложений ---
         val appsList = getInstalledAppsList(appContext)
@@ -479,7 +485,8 @@ object ConversationManager {
             internet_connection_status = connectionType,
             ringer_mode = ringerMode,
             battery_level = batteryPct,
-            installed_apps = appsList // <--- НОВАЯ СТРОКА: Передаем список
+            installed_apps = appsList, // <--- НОВАЯ СТРОКА: Передаем список
+            is_keyguard_locked = isLocked
         )
     }
 
@@ -487,10 +494,30 @@ object ConversationManager {
         scope.launch {
             for (action in actions) {
                 try {
-                    if (action.type == "highlight") {
-                        val selectorMap = mapOf("by" to action.selector.by, "value" to action.selector.value)
-                        Log.d("ConvManager", "Posting highlight event with selector: $selectorMap")
-                        EventBus.post(HighlightElementEvent(selectorMap))
+                    when (action.type) {
+                        "click" -> {
+                            val selectorMap = mapOf("by" to action.selector.by, "value" to action.selector.value)
+                            Log.d("ConvManager", "Posting click event with selector: $selectorMap")
+                            EventBus.post(ClickElementEvent(selectorMap))
+                        }
+                        "back" -> {
+                            Log.d("ConvManager", "Posting back event")
+                            EventBus.post(GlobalActionEvent(1)) // Corresponds to AccessibilityService.GLOBAL_ACTION_BACK
+                        }
+                        "home" -> {
+                            Log.d("ConvManager", "Posting home event")
+                            EventBus.post(GlobalActionEvent(2)) // Corresponds to AccessibilityService.GLOBAL_ACTION_HOME
+                        }
+                        "highlight" -> {
+                            val selectorMap = mapOf("by" to action.selector.by, "value" to action.selector.value)
+                            Log.d("ConvManager", "Posting highlight event with selector: $selectorMap")
+                            EventBus.post(HighlightElementEvent(selectorMap))
+                        }
+                        "scroll" -> {
+                            val direction = action.selector.value
+                            Log.d("ConvManager", "Posting scroll event: $direction")
+                            EventBus.post(ScrollEvent(direction))
+                        }
                     }
                 } catch (e: Exception) {
                     Logger.e(e, "Failed to process action: $action")
@@ -505,8 +532,8 @@ object ConversationManager {
         config.setLocale(locale)
         return context.createConfigurationContext(config)
     }
-    
-   private fun getInstalledAppsList(context: Context): String {
+
+    private fun getInstalledAppsList(context: Context): String {
         val pm = context.packageManager
         val intent = Intent(Intent.ACTION_MAIN, null).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)

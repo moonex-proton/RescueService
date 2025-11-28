@@ -24,7 +24,7 @@ object AssistantLifecycleManager {
     private var isInitialized = false
 
     // --- FOLLOW-UP WINDOW ---
-    private const val DEFAULT_FOLLOW_UP_WINDOW_MS = 10_000L
+    private const val DEFAULT_FOLLOW_UP_WINDOW_MS = 60_000L
     private var followUpWindowUntil: Long = 0L
     private var followUpCloser: Job? = null
     private var lastInstructionGiven: String? = null
@@ -107,11 +107,15 @@ object AssistantLifecycleManager {
      */
     @JvmStatic
     fun onScreenChangedForFollowUp(context: Context, screenContext: String?) {
-        if (!isFollowUpWindowActive()) return
-        VoiceSessionService.startSession(
-            context = context,
-            timeoutSeconds = 8,
-            screenContext = screenContext
-        )
+        if (!isFollowUpWindowActive()) {
+            return
+        }
+        // DO NOT start the voice session here. This created a race condition.
+        // The voice session will be started by the TtsPlaybackFinished event handler,
+        // which ensures the microphone only opens AFTER the LLM's response has been spoken.
+        // This method now only serves to validate that the screen change occurred
+        // within the valid time window. The Accessibility Service already sent the
+        // broadcast to trigger the "FOLLOW_UP" to the LLM.
+        Logger.d("Screen changed during follow-up window. Logic proceeds, but voice session is deferred.")
     }
 }

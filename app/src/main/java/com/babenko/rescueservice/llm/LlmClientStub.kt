@@ -26,7 +26,8 @@ data class DeviceStatus(
     val internet_connection_status: String?,
     val ringer_mode: String?,
     val battery_level: Int?,
-    val installed_apps: String? = null // <--- ДОБАВЛЕНО ЭТО ПОЛЕ
+    val installed_apps: String? = null,
+    val is_keyguard_locked: Boolean? = null // <--- NEW FIELD
 )
 
 @Serializable
@@ -162,7 +163,8 @@ object LlmClient {
     }
 
     /**
-     * Sends the full context to the backend and returns a response from the model. (DEPRECATED)
+     * Sends the full context to the backend and returns a response from the model.
+     * (DEPRECATED)
      */
     suspend fun getResponse(
         prompt: String,

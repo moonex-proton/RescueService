@@ -29,8 +29,12 @@ import com.babenko.rescueservice.voice.VoiceSessionService
 import android.content.ComponentName
 import android.view.MotionEvent
 import com.babenko.rescueservice.core.AssistantLifecycleManager
+import com.babenko.rescueservice.core.ClickElementEvent
 import com.babenko.rescueservice.core.EventBus
+import com.babenko.rescueservice.core.GlobalActionEvent
 import com.babenko.rescueservice.core.HighlightElementEvent
+import com.babenko.rescueservice.core.ScrollEvent
+import com.babenko.rescueservice.core.TtsPlaybackFinished
 import com.babenko.rescueservice.voice.CommandReceiver
 import com.babenko.rescueservice.voice.ConversationManager
 import kotlinx.coroutines.CoroutineScope
@@ -54,6 +58,9 @@ class RedHelperAccessibilityService : AccessibilityService() {
     private var followUpSentInThisWindow: Boolean = false
     private var wasWindowActive: Boolean = false
 
+    // --- Debounce Runnable ---
+    private var debounceRunnable: Runnable? = null
+
     private lateinit var localizedContext: Context
 
     // --- Variables for Drag-and-Drop ---
@@ -66,6 +73,7 @@ class RedHelperAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val CLICK_LOCK_MS = 2000L
+        private const val DEBOUNCE_DELAY_MS = 1000L
     }
 
     private val localeChangeReceiver = object : BroadcastReceiver() {
@@ -305,6 +313,7 @@ class RedHelperAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        // 1. Manage window active state instantly
         val windowActive = AssistantLifecycleManager.isFollowUpWindowActive()
         if (!windowActive) {
             if (wasWindowActive) {
@@ -319,41 +328,167 @@ class RedHelperAccessibilityService : AccessibilityService() {
         val type = event?.eventType ?: return
         if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && type != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return
 
-        val root = rootInActiveWindow ?: return
-        val contextStr = getScreenContext(root)
-        val hash = computeScreenHash(contextStr)
-        if (hash == lastScreenHash) return
-        lastScreenHash = hash
+        // 2. DEBOUNCE LOGIC
+        // Cancel previous pending check
+        debounceRunnable?.let { handler.removeCallbacks(it) }
 
-        if (followUpSentInThisWindow) return
+        // Schedule new check
+        debounceRunnable = Runnable {
+            val root = rootInActiveWindow ?: return@Runnable
+            val contextStr = getScreenContext(root)
+            val hash = computeScreenHash(contextStr)
 
-        try {
-            val intent = Intent(CommandReceiver.ACTION_PROCESS_COMMAND).apply {
-                component = ComponentName(this@RedHelperAccessibilityService, CommandReceiver::class.java)
-                `package` = packageName
-                addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
-                putExtra(CommandReceiver.EXTRA_RECOGNIZED_TEXT, "FOLLOW_UP")
-                putExtra(CommandReceiver.EXTRA_SCREEN_CONTEXT, contextStr)
+            if (hash == lastScreenHash) return@Runnable
+            lastScreenHash = hash
+
+            if (followUpSentInThisWindow) return@Runnable
+
+            try {
+                val intent = Intent(CommandReceiver.ACTION_PROCESS_COMMAND).apply {
+                    component = ComponentName(this@RedHelperAccessibilityService, CommandReceiver::class.java)
+                    `package` = packageName
+                    addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+                    putExtra(CommandReceiver.EXTRA_RECOGNIZED_TEXT, "FOLLOW_UP")
+                    putExtra(CommandReceiver.EXTRA_SCREEN_CONTEXT, contextStr)
+                }
+                sendBroadcast(intent)
+                AssistantLifecycleManager.onScreenChangedForFollowUp(this@RedHelperAccessibilityService, contextStr)
+                followUpSentInThisWindow = true
+                AssistantLifecycleManager.cancelFollowUpWindow()
+            } catch (e: Exception) {
+                Logger.e(e, "Failed to send follow-up broadcast from AccessibilityService")
             }
-            sendBroadcast(intent)
-            AssistantLifecycleManager.onScreenChangedForFollowUp(this, contextStr)
-            followUpSentInThisWindow = true
-            AssistantLifecycleManager.cancelFollowUpWindow()
-        } catch (e: Exception) {
-            Logger.e(e, "Failed to send follow-up broadcast from AccessibilityService")
         }
+
+        // Wait for screen to stabilize (1 second)
+        handler.postDelayed(debounceRunnable!!, DEBOUNCE_DELAY_MS)
     }
 
     private fun subscribeToEvents() {
         serviceScope.launch {
             EventBus.events.collectLatest { event ->
-                if (event is HighlightElementEvent) {
-                    withContext(Dispatchers.Main) {
-                        handleHighlightEvent(event)
+                withContext(Dispatchers.Main) { // Actions on UI must be on the main thread
+                    when (event) {
+                        is HighlightElementEvent -> handleHighlightEvent(event)
+                        is ClickElementEvent -> handleClickEvent(event)
+                        is GlobalActionEvent -> {
+                            Logger.d("Performing global action: ${event.actionId}")
+                            performGlobalAction(event.actionId)
+                        }
+                        is TtsPlaybackFinished -> {
+                            // Not handled in this service
+                        }
+                        is ScrollEvent -> {
+                            Logger.d("Received ScrollEvent: ${event.direction}")
+                            performScroll(event.direction)
+                        }
                     }
                 }
             }
         }
+    }
+
+    private fun handleClickEvent(event: ClickElementEvent) {
+        val root = rootInActiveWindow ?: return
+        val selector = event.selector
+        val by = selector["by"]
+        val value = selector["value"]
+
+        if (by == null || value == null) {
+            Logger.d("Click event failed: selector is null")
+            return
+        }
+
+        var targetNode: AccessibilityNodeInfo? = null
+
+        when (by) {
+            "text" -> {
+                // Try standard search first
+                val nodes = root.findAccessibilityNodeInfosByText(value)
+                targetNode = nodes.firstOrNull { it.isVisibleToUser }
+                if (targetNode == null) {
+                    Logger.d("Standard text search failed for '$value'. Trying recursive FUZZY fallback.")
+                    // Use new fuzzy match logic
+                    targetNode = findNodeByTextRecursively(root, value)
+                }
+            }
+            "id" -> {
+                val nodes = root.findAccessibilityNodeInfosByViewId(value)
+                targetNode = nodes.firstOrNull { it.isVisibleToUser }
+            }
+            "content_desc" -> {
+                targetNode = findNodeByTextRecursively(root, value)
+            }
+        }
+
+        if (targetNode != null) {
+            Logger.d("Performing click on element with selector: $selector")
+            targetNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            targetNode.recycle()
+        } else {
+            Logger.d("Could not find element to click with selector: $selector")
+            // Inform user via TTS if element is not found
+            TtsManager.speak(this, "Я не вижу элемент $value", TextToSpeech.QUEUE_ADD)
+        }
+    }
+
+    // --- NEW SCROLL LOGIC (Helpers) ---
+    private fun performScroll(direction: String) {
+        val root = rootInActiveWindow ?: return
+
+        var scrollable: AccessibilityNodeInfo? = null
+
+        // 1. Try to find a priority list (RecyclerView/ListView) first
+        if (direction == "down" || direction == "up") {
+            scrollable = findScrollableNode(root, priority = true)
+        }
+
+        // 2. If not found (or direction is horizontal), fall back to any scrollable
+        if (scrollable == null) {
+            scrollable = findScrollableNode(root, priority = false)
+        }
+
+        if (scrollable != null) {
+            val action = if (direction == "down")
+                AccessibilityNodeInfo.ACTION_SCROLL_FORWARD // Content moves up, view moves down
+            else
+                AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+            Logger.d("Scrolling $direction on node: ${scrollable.viewIdResourceName}")
+            scrollable.performAction(action)
+            scrollable.recycle()
+        } else {
+            Logger.d("No scrollable node found")
+            TtsManager.speak(this, "Здесь нельзя прокрутить", TextToSpeech.QUEUE_ADD)
+        }
+
+        // Always recycle the root node obtained from rootInActiveWindow if it wasn't used/recycled
+        if (root != scrollable) {
+            root.recycle()
+        }
+    }
+
+    private fun findScrollableNode(node: AccessibilityNodeInfo, priority: Boolean): AccessibilityNodeInfo? {
+        val isScrollable = node.isScrollable
+        if (isScrollable) {
+            if (!priority) return node
+            // Priority Check
+            val cls = node.className?.toString()?.lowercase() ?: ""
+            if (cls.contains("recycler") || cls.contains("list") || cls.contains("scroll")) {
+                return node
+            }
+            // If priority is true but this node is NOT a list (e.g. ViewPager), continue searching children
+        }
+
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val found = findScrollableNode(child, priority)
+            if (found != null) {
+                if (child != found) child.recycle()
+                return found
+            }
+            child.recycle()
+        }
+        return null
     }
 
     // --- IMPROVED SEARCH AND HIGHLIGHTING ---
@@ -369,9 +504,16 @@ class RedHelperAccessibilityService : AccessibilityService() {
                 continue
             }
 
-            // Check both text and contentDescription
-            if (text.equals(node.text?.toString(), ignoreCase = true) ||
-                text.equals(node.contentDescription?.toString(), ignoreCase = true)) {
+            // Check both text and contentDescription using contains instead of equals
+            val nodeText = node.text?.toString()
+            val nodeDesc = node.contentDescription?.toString()
+
+            val textLower = text.lowercase()
+            val nodeTextLower = nodeText?.lowercase()
+            val nodeDescLower = nodeDesc?.lowercase()
+
+            if ((nodeTextLower != null && nodeTextLower.contains(textLower)) ||
+                (nodeDescLower != null && nodeDescLower.contains(textLower))) {
                 return node
             }
 
