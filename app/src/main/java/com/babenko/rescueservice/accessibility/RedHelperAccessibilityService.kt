@@ -73,7 +73,8 @@ class RedHelperAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val CLICK_LOCK_MS = 2000L
-        private const val DEBOUNCE_DELAY_MS = 1000L
+        // Reduced from 1000L to 500L for faster UI reaction
+        private const val DEBOUNCE_DELAY_MS = 500L
     }
 
     private val localeChangeReceiver = object : BroadcastReceiver() {
@@ -338,10 +339,13 @@ class RedHelperAccessibilityService : AccessibilityService() {
             val contextStr = getScreenContext(root)
             val hash = computeScreenHash(contextStr)
 
-            if (hash == lastScreenHash) return@Runnable
-            lastScreenHash = hash
+            // --- REFACTORED ANTI-FREEZE LOGIC ---
+            // Only stop if we definitely sent a follow-up AND the screen is exactly the same.
+            // If followUpSentInThisWindow is FALSE (reset by click/scroll), we proceed regardless of hash.
+            // If hash CHANGED (screen updated), we proceed regardless of flag.
+            if (followUpSentInThisWindow && hash == lastScreenHash) return@Runnable
 
-            if (followUpSentInThisWindow) return@Runnable
+            lastScreenHash = hash
 
             try {
                 val intent = Intent(CommandReceiver.ACTION_PROCESS_COMMAND).apply {
@@ -360,7 +364,7 @@ class RedHelperAccessibilityService : AccessibilityService() {
             }
         }
 
-        // Wait for screen to stabilize (1 second)
+        // Wait for screen to stabilize (500 ms)
         handler.postDelayed(debounceRunnable!!, DEBOUNCE_DELAY_MS)
     }
 
@@ -442,7 +446,19 @@ class RedHelperAccessibilityService : AccessibilityService() {
     // --- NEW SCROLL LOGIC (Helpers) ---
     private fun performScroll(direction: String) {
         val root = rootInActiveWindow ?: return
-        val scrollable = findScrollableNode(root)
+
+        var scrollable: AccessibilityNodeInfo? = null
+
+        // 1. Try to find a priority list (RecyclerView/ListView) first
+        if (direction == "down" || direction == "up") {
+            scrollable = findScrollableNode(root, priority = true)
+        }
+
+        // 2. If not found (or direction is horizontal), fall back to any scrollable
+        if (scrollable == null) {
+            scrollable = findScrollableNode(root, priority = false)
+        }
+
         if (scrollable != null) {
             val action = if (direction == "down")
                 AccessibilityNodeInfo.ACTION_SCROLL_FORWARD // Content moves up, view moves down
@@ -455,20 +471,32 @@ class RedHelperAccessibilityService : AccessibilityService() {
             Logger.d("No scrollable node found")
             TtsManager.speak(this, "Здесь нельзя прокрутить", TextToSpeech.QUEUE_ADD)
         }
+
+        // Always recycle the root node obtained from rootInActiveWindow if it wasn't used/recycled
+        if (root != scrollable) {
+            root.recycle()
+        }
     }
 
-    private fun findScrollableNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-        if (node.isScrollable) return node
+    private fun findScrollableNode(node: AccessibilityNodeInfo, priority: Boolean): AccessibilityNodeInfo? {
+        val isScrollable = node.isScrollable
+        if (isScrollable) {
+            if (!priority) return node
+            // Priority Check
+            val cls = node.className?.toString()?.lowercase() ?: ""
+            // Must be a list type AND NOT a pager to avoid horizontal swipe on WhatsApp home
+            if ((cls.contains("recycler") || cls.contains("list") || cls.contains("scroll"))
+                && !cls.contains("pager")) {
+                return node
+            }
+            // If priority is true but this node is NOT a list (e.g. ViewPager), continue searching children
+        }
+
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
-            // We need to recycle children if they are NOT the result, but keep the result open
-            val found = findScrollableNode(child)
+            val found = findScrollableNode(child, priority)
             if (found != null) {
-                // If child itself wasn't the result but one of its descendants was,
-                // we recycle the child container as we go back up the stack
-                if (child != found) {
-                    child.recycle()
-                }
+                if (child != found) child.recycle()
                 return found
             }
             child.recycle()
@@ -516,10 +544,10 @@ class RedHelperAccessibilityService : AccessibilityService() {
                 continue
             }
 
+            // Check both text and contentDescription using SOFT MATCH
             val nodeText = node.text?.toString()
             val nodeDesc = node.contentDescription?.toString()
 
-            // USE SOFT MATCH
             if (softMatch(nodeText, text) || softMatch(nodeDesc, text)) {
                 return node
             }
