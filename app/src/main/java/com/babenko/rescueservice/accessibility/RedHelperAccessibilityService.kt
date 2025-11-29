@@ -370,8 +370,13 @@ class RedHelperAccessibilityService : AccessibilityService() {
                 withContext(Dispatchers.Main) { // Actions on UI must be on the main thread
                     when (event) {
                         is HighlightElementEvent -> handleHighlightEvent(event)
-                        is ClickElementEvent -> handleClickEvent(event)
+                        is ClickElementEvent -> {
+                            // Reset flag to allow follow-up after screen change
+                            followUpSentInThisWindow = false
+                            handleClickEvent(event)
+                        }
                         is GlobalActionEvent -> {
+                            followUpSentInThisWindow = false
                             Logger.d("Performing global action: ${event.actionId}")
                             performGlobalAction(event.actionId)
                         }
@@ -379,6 +384,8 @@ class RedHelperAccessibilityService : AccessibilityService() {
                             // Not handled in this service
                         }
                         is ScrollEvent -> {
+                            // Reset flag to allow follow-up after screen change
+                            followUpSentInThisWindow = false
                             Logger.d("Received ScrollEvent: ${event.direction}")
                             performScroll(event.direction)
                         }
@@ -435,19 +442,7 @@ class RedHelperAccessibilityService : AccessibilityService() {
     // --- NEW SCROLL LOGIC (Helpers) ---
     private fun performScroll(direction: String) {
         val root = rootInActiveWindow ?: return
-
-        var scrollable: AccessibilityNodeInfo? = null
-
-        // 1. Try to find a priority list (RecyclerView/ListView) first
-        if (direction == "down" || direction == "up") {
-            scrollable = findScrollableNode(root, priority = true)
-        }
-
-        // 2. If not found (or direction is horizontal), fall back to any scrollable
-        if (scrollable == null) {
-            scrollable = findScrollableNode(root, priority = false)
-        }
-
+        val scrollable = findScrollableNode(root)
         if (scrollable != null) {
             val action = if (direction == "down")
                 AccessibilityNodeInfo.ACTION_SCROLL_FORWARD // Content moves up, view moves down
@@ -460,35 +455,52 @@ class RedHelperAccessibilityService : AccessibilityService() {
             Logger.d("No scrollable node found")
             TtsManager.speak(this, "Здесь нельзя прокрутить", TextToSpeech.QUEUE_ADD)
         }
-
-        // Always recycle the root node obtained from rootInActiveWindow if it wasn't used/recycled
-        if (root != scrollable) {
-            root.recycle()
-        }
     }
 
-    private fun findScrollableNode(node: AccessibilityNodeInfo, priority: Boolean): AccessibilityNodeInfo? {
-        val isScrollable = node.isScrollable
-        if (isScrollable) {
-            if (!priority) return node
-            // Priority Check
-            val cls = node.className?.toString()?.lowercase() ?: ""
-            if (cls.contains("recycler") || cls.contains("list") || cls.contains("scroll")) {
-                return node
-            }
-            // If priority is true but this node is NOT a list (e.g. ViewPager), continue searching children
-        }
-
+    private fun findScrollableNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        if (node.isScrollable) return node
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
-            val found = findScrollableNode(child, priority)
+            // We need to recycle children if they are NOT the result, but keep the result open
+            val found = findScrollableNode(child)
             if (found != null) {
-                if (child != found) child.recycle()
+                // If child itself wasn't the result but one of its descendants was,
+                // we recycle the child container as we go back up the stack
+                if (child != found) {
+                    child.recycle()
+                }
                 return found
             }
             child.recycle()
         }
         return null
+    }
+
+    // --- SOFT MATCH LOGIC ---
+    private fun softMatch(nodeText: String?, targetText: String): Boolean {
+        if (nodeText.isNullOrBlank()) return false
+
+        val nText = nodeText.trim().lowercase()
+        val tText = targetText.trim().lowercase()
+
+        // 1. Exact or Substring match (Bidirectional)
+        if (nText.contains(tText) || tText.contains(nText)) return true
+
+        // 2. Token-based match (Word intersection)
+        // Split by non-letter characters to handle punctuation
+        val targetWords = tText.split(Regex("[^\\p{L}0-9]+")).filter { it.length > 2 }
+        val nodeWords = nText.split(Regex("[^\\p{L}0-9]+")).filter { it.length > 2 }
+
+        // If ANY significant word from target exists in node, consider it a candidate.
+        for (tw in targetWords) {
+            if (nodeWords.contains(tw)) return true
+            // Check for "root" match for Russian morphology (simplistic)
+            for (nw in nodeWords) {
+                if (tw.startsWith(nw.take(3)) && nw.startsWith(tw.take(3))) return true
+            }
+        }
+
+        return false
     }
 
     // --- IMPROVED SEARCH AND HIGHLIGHTING ---
@@ -504,16 +516,11 @@ class RedHelperAccessibilityService : AccessibilityService() {
                 continue
             }
 
-            // Check both text and contentDescription using contains instead of equals
             val nodeText = node.text?.toString()
             val nodeDesc = node.contentDescription?.toString()
 
-            val textLower = text.lowercase()
-            val nodeTextLower = nodeText?.lowercase()
-            val nodeDescLower = nodeDesc?.lowercase()
-
-            if ((nodeTextLower != null && nodeTextLower.contains(textLower)) ||
-                (nodeDescLower != null && nodeDescLower.contains(textLower))) {
+            // USE SOFT MATCH
+            if (softMatch(nodeText, text) || softMatch(nodeDesc, text)) {
                 return node
             }
 
