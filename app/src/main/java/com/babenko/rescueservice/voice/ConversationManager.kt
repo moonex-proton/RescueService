@@ -15,6 +15,7 @@ import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import com.babenko.rescueservice.R
+import com.babenko.rescueservice.accessibility.RedHelperAccessibilityService
 import com.babenko.rescueservice.core.AssistantLifecycleManager
 import com.babenko.rescueservice.core.ClickElementEvent
 import com.babenko.rescueservice.core.EventBus
@@ -28,9 +29,11 @@ import com.babenko.rescueservice.llm.CommandParser
 import com.babenko.rescueservice.llm.DeviceStatus
 import com.babenko.rescueservice.llm.LlmClient
 import com.babenko.rescueservice.llm.ParsedCommand
+import com.babenko.rescueservice.llm.TaskState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -48,6 +51,9 @@ object ConversationManager {
 
     // --- SESSION MANAGEMENT ---
     private var currentSessionId: String? = null
+
+    // --- TASK STATE MANAGEMENT (TOTEM) ---
+    private var currentTaskState = TaskState()
 
     private enum class State {
         IDLE, AWAITING_SETTING_CHOICE, AWAITING_NEW_NAME, AWAITING_NEW_LANGUAGE, AWAITING_NEW_SPEED
@@ -97,23 +103,6 @@ object ConversationManager {
         val parsedCommand = CommandParser.parse(text)
         if (parsedCommand.command == Command.UNKNOWN) {
             val primaryText = text.split("|||").first().trim()
-            // Этот блок был закомментирован, чтобы предотвратить нестрогую интерпретацию любой фразы как команды.
-            // Логика распознавания команд теперь централизована в CommandParser.
-            /*
-            val languageTarget = detectLanguageTarget(primaryText)
-            if (languageTarget != null) {
-                isRetryAttempt = false
-                applyLanguage(languageTarget)
-                // Get string from localized context
-                val localizedContext = getLocalizedContext(appContext, languageTarget)
-                val phrase = localizedContext.getString(R.string.language_set_confirmation)
-                TtsManager.speak(appContext, phrase, TextToSpeech.QUEUE_ADD)
-            } else {
-                if (primaryText.isNotBlank()) {
-                    queryLlm(primaryText, screenContext)
-                }
-            }
-            */
             // Если команда не распознана, выполните запрос LLM.
             if (primaryText.isNotBlank()) {
                 queryLlm(primaryText, screenContext)
@@ -128,6 +117,22 @@ object ConversationManager {
     private fun queryLlm(userText: String, screenContext: String?) {
         scope.launch {
             try {
+                // --- FUSE PROTECTION (Client-side) ---
+                if (currentTaskState.goal != "NONE" && currentTaskState.step > 5) {
+                    Logger.d("Fuse triggered: Step limit > 5. Stopping task.")
+                    // Reset state
+                    currentTaskState = TaskState()
+                    // Inform user
+                    val msg = "Я искала слишком долго, но не нашла. Давайте попробуем иначе." // Hardcoded fallback or resource
+                    TtsManager.speak(appContext, msg, TextToSpeech.QUEUE_FLUSH)
+                    return@launch
+                }
+
+                // Increment step if we are in a task
+                if (currentTaskState.goal != "NONE") {
+                    currentTaskState = currentTaskState.copy(step = currentTaskState.step + 1)
+                }
+
                 // 1. Get or create a session ID
                 val sessionId = currentSessionId ?: UUID.randomUUID().toString().also {
                     currentSessionId = it
@@ -140,7 +145,8 @@ object ConversationManager {
                     sessionId = sessionId,
                     userText = userText,
                     screenContext = screenContext,
-                    status = statusJson
+                    status = statusJson,
+                    taskState = currentTaskState // Pass the Totem
                 )
 
                 // 3. Speak and process the response
@@ -495,18 +501,30 @@ object ConversationManager {
             for (action in actions) {
                 try {
                     when (action.type) {
+                        "set_goal" -> {
+                            val newGoal = action.selector.value
+                            currentTaskState = TaskState(goal = newGoal, step = 0)
+                            Logger.d("GOAL SET: $newGoal")
+                        }
+                        "stop_task" -> {
+                            currentTaskState = TaskState() // Reset to NONE
+                            Logger.d("TASK STOPPED by LLM.")
+                        }
                         "click" -> {
                             val selectorMap = mapOf("by" to action.selector.by, "value" to action.selector.value)
                             Log.d("ConvManager", "Posting click event with selector: $selectorMap")
                             EventBus.post(ClickElementEvent(selectorMap))
+                            scheduleForceCapture()
                         }
                         "back" -> {
                             Log.d("ConvManager", "Posting back event")
                             EventBus.post(GlobalActionEvent(1)) // Corresponds to AccessibilityService.GLOBAL_ACTION_BACK
+                            scheduleForceCapture()
                         }
                         "home" -> {
                             Log.d("ConvManager", "Posting home event")
                             EventBus.post(GlobalActionEvent(2)) // Corresponds to AccessibilityService.GLOBAL_ACTION_HOME
+                            scheduleForceCapture()
                         }
                         "highlight" -> {
                             val selectorMap = mapOf("by" to action.selector.by, "value" to action.selector.value)
@@ -517,12 +535,24 @@ object ConversationManager {
                             val direction = action.selector.value
                             Log.d("ConvManager", "Posting scroll event: $direction")
                             EventBus.post(ScrollEvent(direction))
+                            scheduleForceCapture()
                         }
                     }
                 } catch (e: Exception) {
                     Logger.e(e, "Failed to process action: $action")
                 }
             }
+        }
+    }
+
+    // NEW: Schedule a forced screen capture to prevent hanging after action
+    private fun scheduleForceCapture() {
+        scope.launch {
+            delay(2000)
+            Logger.d("Sending FORCE_CAPTURE broadcast (Pulse)")
+            val intent = Intent(RedHelperAccessibilityService.ACTION_FORCE_CAPTURE)
+            intent.setPackage(appContext.packageName)
+            appContext.sendBroadcast(intent)
         }
     }
 

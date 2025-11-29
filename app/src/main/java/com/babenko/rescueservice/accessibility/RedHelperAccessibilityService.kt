@@ -75,6 +75,9 @@ class RedHelperAccessibilityService : AccessibilityService() {
         private const val CLICK_LOCK_MS = 2000L
         // Reduced from 1000L to 500L for faster UI reaction
         private const val DEBOUNCE_DELAY_MS = 500L
+
+        // NEW: Action for forcing a screen capture
+        const val ACTION_FORCE_CAPTURE = "com.babenko.rescueservice.ACTION_FORCE_CAPTURE"
     }
 
     private val localeChangeReceiver = object : BroadcastReceiver() {
@@ -82,6 +85,16 @@ class RedHelperAccessibilityService : AccessibilityService() {
             if (intent?.action == ConversationManager.ACTION_LOCALE_CHANGED) {
                 Logger.d("RedHelperAccessibilityService: Received locale change broadcast. Updating context.")
                 updateLocalizedContext()
+            }
+        }
+    }
+
+    // NEW: Receiver for the force capture signal
+    private val forceCaptureReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == ACTION_FORCE_CAPTURE) {
+                Logger.d("RedHelperAccessibilityService: Received FORCE_CAPTURE request.")
+                forceCapture()
             }
         }
     }
@@ -100,8 +113,13 @@ class RedHelperAccessibilityService : AccessibilityService() {
             flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
         }
         subscribeToEvents()
+
         val filter = IntentFilter(ConversationManager.ACTION_LOCALE_CHANGED)
         ContextCompat.registerReceiver(this, localeChangeReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+
+        // NEW: Register force capture receiver
+        val forceFilter = IntentFilter(ACTION_FORCE_CAPTURE)
+        ContextCompat.registerReceiver(this, forceCaptureReceiver, forceFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     override fun onInterrupt() {}
@@ -114,7 +132,14 @@ class RedHelperAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         overlayHighlighter.hide()
         removeFloatingButtonSafely()
-        unregisterReceiver(localeChangeReceiver)
+        try {
+            unregisterReceiver(localeChangeReceiver)
+        } catch (e: Exception) { Logger.e(e, "Error unregistering locale receiver") }
+
+        try {
+            unregisterReceiver(forceCaptureReceiver)
+        } catch (e: Exception) { Logger.e(e, "Error unregistering force capture receiver") }
+
         super.onDestroy()
     }
 
@@ -311,6 +336,36 @@ class RedHelperAccessibilityService : AccessibilityService() {
     private fun computeScreenHash(contextStr: String): String {
         val slice = if (contextStr.length > 2000) contextStr.substring(0, 2000) else contextStr
         return slice.hashCode().toString()
+    }
+
+    // NEW: Method to force screen capture and sending FOLLOW_UP, ignoring hash check
+    private fun forceCapture() {
+        // Cancel pending debounce to avoid double sending
+        debounceRunnable?.let { handler.removeCallbacks(it) }
+
+        val root = rootInActiveWindow ?: return
+        val contextStr = getScreenContext(root)
+        val hash = computeScreenHash(contextStr)
+
+        // Force update hash to prevent the next regular event from triggering duplicate if screen hasn't changed
+        lastScreenHash = hash
+
+        try {
+            val intent = Intent(CommandReceiver.ACTION_PROCESS_COMMAND).apply {
+                component = ComponentName(this@RedHelperAccessibilityService, CommandReceiver::class.java)
+                `package` = packageName
+                addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+                putExtra(CommandReceiver.EXTRA_RECOGNIZED_TEXT, "FOLLOW_UP")
+                putExtra(CommandReceiver.EXTRA_SCREEN_CONTEXT, contextStr)
+            }
+            sendBroadcast(intent)
+            AssistantLifecycleManager.onScreenChangedForFollowUp(this@RedHelperAccessibilityService, contextStr)
+            followUpSentInThisWindow = true
+            AssistantLifecycleManager.cancelFollowUpWindow()
+            Logger.d("Force capture executed successfully.")
+        } catch (e: Exception) {
+            Logger.e(e, "Failed to send force capture broadcast")
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {

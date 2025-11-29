@@ -64,11 +64,18 @@ data class ChatResponse(
 
 // --- NEW MODELS FOR STATEFUL API ---
 @Serializable
+data class TaskState(
+    val goal: String = "NONE",
+    val step: Int = 0
+)
+
+@Serializable
 data class LlmRequest(
     @SerialName("session_id") val sessionId: String,
     @SerialName("user_text") val userText: String,
     @SerialName("screen_context") val screenContext: String,
-    val status: String? = null
+    val status: String? = null,
+    @SerialName("task_state") val taskState: TaskState? = null
 )
 
 object LlmClient {
@@ -119,17 +126,20 @@ object LlmClient {
         sessionId: String,
         userText: String,
         screenContext: String?,
-        status: String?
+        status: String?,
+        taskState: TaskState? = null
     ): ChatResponse {
         val requestBody = LlmRequest(
             sessionId = sessionId,
             userText = userText,
             screenContext = screenContext ?: "", // Backend expects a non-null string
-            status = status
+            status = status,
+            taskState = taskState
         )
 
         return try {
             Log.d(TAG, "Sending stateful request [sessionId=$sessionId]: '${userText.take(120)}'")
+            Log.d(TAG, "TaskState: goal='${taskState?.goal}', step=${taskState?.step}")
             Log.d(TAG, "Status JSON: $status")
 
             val response = client.post(SERVER_URL) {
