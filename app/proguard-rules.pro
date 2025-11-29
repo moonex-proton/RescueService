@@ -13,3 +13,6 @@
 
 # Keep classes for WorkManager
 -keepnames class androidx.work.impl.workers.** { *; }
+
+# Keep TaskState for JSON serialization
+-keep class com.babenko.rescueservice.llm.TaskState { *; }
