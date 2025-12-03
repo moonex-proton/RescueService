@@ -33,6 +33,7 @@ import com.babenko.rescueservice.core.ClickElementEvent
 import com.babenko.rescueservice.core.EventBus
 import com.babenko.rescueservice.core.GlobalActionEvent
 import com.babenko.rescueservice.core.HighlightElementEvent
+import com.babenko.rescueservice.core.ProcessingStateChanged
 import com.babenko.rescueservice.core.ScrollEvent
 import com.babenko.rescueservice.core.TtsPlaybackFinished
 import com.babenko.rescueservice.voice.CommandReceiver
@@ -63,6 +64,10 @@ class RedHelperAccessibilityService : AccessibilityService() {
 
     private lateinit var localizedContext: Context
 
+    // --- Watchdog for button state ---
+    private val watchdogHandler = Handler(Looper.getMainLooper())
+    private var watchdogRunnable: Runnable? = null
+
     // --- Variables for Drag-and-Drop ---
     private var initialX = 0
     private var initialY = 0
@@ -72,7 +77,6 @@ class RedHelperAccessibilityService : AccessibilityService() {
     private var overlayParams: WindowManager.LayoutParams? = null
 
     companion object {
-        private const val CLICK_LOCK_MS = 2000L
         // Reduced from 1000L to 500L for faster UI reaction
         private const val DEBOUNCE_DELAY_MS = 500L
 
@@ -161,6 +165,22 @@ class RedHelperAccessibilityService : AccessibilityService() {
         Logger.d("Localized context updated to $lang for Service and SettingsManager")
     }
 
+    private fun setProcessingState(isProcessing: Boolean) {
+        // Cancel any pending watchdog since we have a definitive state
+        watchdogRunnable?.let { watchdogHandler.removeCallbacks(it) }
+
+        val colorRes = if (isProcessing) android.R.color.holo_red_dark else android.R.color.holo_green_dark
+        val alphaValue = if (isProcessing) 0.6f else 1.0f
+
+        isClickLocked = isProcessing
+
+        floatingButton?.apply {
+            background.setTint(ContextCompat.getColor(context, colorRes))
+            alpha = alphaValue
+            isClickable = !isProcessing
+        }
+    }
+
     private fun showFloatingButton() {
         // 1. Protection against duplication
         if (floatingButton != null) return
@@ -241,6 +261,8 @@ class RedHelperAccessibilityService : AccessibilityService() {
 
             wm.addView(view, overlayParams)
             floatingButton = view
+            // Set initial state to idle/green
+            setProcessingState(false)
         } catch (e: Throwable) {
             Logger.e(e, "Failed to inflate/add floating button overlay")
         }
@@ -248,9 +270,18 @@ class RedHelperAccessibilityService : AccessibilityService() {
 
     private fun handleFloatingButtonClick() {
         if (isClickLocked) return
-        isClickLocked = true
-        floatingButton?.isClickable = false
-        floatingButton?.alpha = 0.6f
+
+        // Immediately set to processing state (red)
+        setProcessingState(true)
+
+        // NEW: Watchdog timer. If nothing happens in 16 seconds (e.g., user
+        // doesn't speak), revert the button to the idle state.
+        watchdogRunnable = Runnable {
+            Logger.d("Watchdog fired: Reverting button to idle state due to timeout.")
+            setProcessingState(false)
+        }
+        // Timeout is 15s for voice session + 1s buffer
+        watchdogHandler.postDelayed(watchdogRunnable!!, 16000L)
 
         val screenContext = getScreenContext(rootInActiveWindow)
 
@@ -272,6 +303,8 @@ class RedHelperAccessibilityService : AccessibilityService() {
                     VoiceSessionService.startSession(this, screenContext = screenContext)
                 } catch (e: Exception) {
                     Logger.e(e, "Failed to start VoiceSessionService after TTS prelude")
+                    // If session fails to start, revert button state
+                    setProcessingState(false)
                 }
             })
         } catch (e: Exception) {
@@ -280,13 +313,9 @@ class RedHelperAccessibilityService : AccessibilityService() {
                 VoiceSessionService.startSession(this, screenContext = screenContext)
             } catch (e2: Exception) {
                 Logger.e(e2, "Failed to start VoiceSessionService from red button (fallback)")
+                // If fallback also fails, revert button state
+                setProcessingState(false)
             }
-        } finally {
-            handler.postDelayed({
-                isClickLocked = false
-                floatingButton?.isClickable = true
-                floatingButton?.alpha = 1f
-            }, CLICK_LOCK_MS)
         }
     }
 
@@ -447,6 +476,10 @@ class RedHelperAccessibilityService : AccessibilityService() {
                             followUpSentInThisWindow = false
                             Logger.d("Received ScrollEvent: ${event.direction}")
                             performScroll(event.direction)
+                        }
+                        is ProcessingStateChanged -> {
+                            Logger.d("Processing state changed: ${event.isProcessing}")
+                            setProcessingState(event.isProcessing)
                         }
                     }
                 }

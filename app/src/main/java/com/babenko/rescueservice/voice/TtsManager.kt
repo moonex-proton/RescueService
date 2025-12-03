@@ -178,15 +178,23 @@ object TtsManager : TextToSpeech.OnInitListener {
         } catch (_: Exception) { }
     }
 
+    // --- Added sanitation logic ---
+    private fun sanitizeText(text: String): String {
+        // Удаляем спецсимволы Markdown: *, #, `, ~, _
+        // Заменяем на пробел, чтобы не склеивать слова
+        return text.replace(Regex("[*#`~_]+"), " ").trim()
+    }
+
     fun speak(context: Context, text: String, queueMode: Int, onDone: (() -> Unit)? = null) {
-        lastSpokenMessage = text
+        val cleanText = sanitizeText(text)
+        lastSpokenMessage = cleanText
         if (tts == null) initialize(context)
         if (!isInitialized) {
-            pending.addLast(Triple(text, queueMode, onDone))
+            pending.addLast(Triple(cleanText, queueMode, onDone))
             return
         }
         requestFocus(context)
-        internalSpeak(text, queueMode, onDone)
+        internalSpeak(cleanText, queueMode, onDone)
     }
 
     private fun internalSpeak(text: String, queueMode: Int, onDone: (() -> Unit)? = null) {

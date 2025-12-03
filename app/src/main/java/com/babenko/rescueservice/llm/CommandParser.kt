@@ -12,6 +12,11 @@ enum class Command {
     INTENT_CHANGE_NAME,
     INTENT_CHANGE_LANGUAGE,
     INTENT_CHANGE_SPEED,
+    // Scrolling commands
+    SCROLL_DOWN,
+    SCROLL_UP,
+    // App launch command
+    OPEN_APP,
     UNKNOWN
 }
 
@@ -23,19 +28,22 @@ data class ParsedCommand(val command: Command, val payload: String? = null)
  */
 object CommandParser {
     // --- Trigger lists -- -
+    // IMPORTANT: All triggers must be free of punctuation (hyphens, question marks, apostrophes),
+    // because the normalize() function now strips them out.
+
     private val repeatTriggers = setOf(
         // Original
-        "повтори", "repeat", "say it again", "что ты сказал", "не расслышал", "что-что", "ещё раз",
+        "повтори", "repeat", "say it again", "что ты сказал", "не расслышал", "чточто", "ещё раз", // "что-что" -> "чточто"
         // New (RU)
         "скажи ещё раз", "дубль", "я не услышал", "я не услышала", "плохо слышно", "не понял", "не поняла",
         "пропустил", "пропустила", "мимо ушей", "чё ты сказал", "чего сказал", "как ты сказал",
-        "как?", "чё?", "а?", "э?", "гм?", "чего?", "что?",
-        "повтори погромче", "повтори помедленнее", "повтори по-чётче", "давай ещё раз", "можно ещё раз",
+        "как", "чё", "а", "э", "гм", "чего", "что", // Removed '?'
+        "повтори погромче", "повтори помедленнее", "повтори почётче", "давай ещё раз", "можно ещё раз", // "по-чётче" -> "почётче"
         "повтори последнее", "повтори сначала",
         // New (EN)
         "say that again", "once more", "once again", "could you repeat", "can you repeat", "tell me again",
-        "didn't hear you", "didn't catch that", "missed that", "what did you say", "pardon", "come again",
-        "what was that", "huh?", "sorry?", "eh?", "say it louder", "repeat slower", "more clearly",
+        "didnt hear you", "didnt catch that", "missed that", "what did you say", "pardon", "come again", // "didn't" -> "didnt"
+        "what was that", "huh", "sorry", "eh", "say it louder", "repeat slower", "more clearly", // Removed '?'
         "one more time", "last bit", "from the beginning"
     )
 
@@ -87,15 +95,34 @@ object CommandParser {
         "speed down speech", "slow speech", "talk slower"
     )
 
+    // --- Scroll Triggers ---
+    private val scrollDownTriggers = setOf(
+        "прокрути вниз", "листай вниз", "вниз", "ниже",
+        "scroll down", "swipe down", "down"
+    )
+
+    private val scrollUpTriggers = setOf(
+        "прокрути вверх", "листай вверх", "вверх", "выше",
+        "scroll up", "swipe up", "up"
+    )
+
+    // --- App Launch Triggers ---
+    private val openAppTriggers = setOf(
+        "открой", "запусти", "открыть", "старт", "включи",
+        "open", "launch", "start", "run"
+    )
+
     private val intentNameTriggers = setOf("имя", "name", "change name", "измени имя")
     private val intentLanguageTriggers = setOf("язык", "language")
     private val intentSpeedTriggers = setOf("скорость", "скорость речи", "speed", "speech speed")
 
     fun parse(text: String): ParsedCommand {
+        // Split by the delimiter we use in VoiceSessionService
         val variants = text.split(" ||| ")
 
         for (variant in variants) {
             val lowercasedText = variant.lowercase()
+            // Strict sanitization: remove all punctuation, symbols (*, #), etc.
             val normalizedText = normalize(lowercasedText)
 
             // 1. Prioritize cross-lingual language change commands
@@ -111,26 +138,40 @@ object CommandParser {
                 return ParsedCommand(Command.CHANGE_NAME, payload)
             }
 
+            // 2.5 Look for App Launch commands
+            extractPayload(normalizedText, openAppTriggers)?.let { payload ->
+                return ParsedCommand(Command.OPEN_APP, payload)
+            }
+
             // 3. Look for simple commands (speech rate)
             if (containsTrigger(normalizedText, speechRateFasterTriggers)) return ParsedCommand(Command.CHANGE_SPEECH_RATE_FASTER)
             if (containsTrigger(normalizedText, speechRateSlowerTriggers)) return ParsedCommand(Command.CHANGE_SPEECH_RATE_SLOWER)
 
-            // 4. Check for intent commands for the settings dialog
-            if (containsTrigger(lowercasedText, intentNameTriggers)) return ParsedCommand(Command.INTENT_CHANGE_NAME)
-            if (containsTrigger(lowercasedText, intentLanguageTriggers)) return ParsedCommand(Command.INTENT_CHANGE_LANGUAGE)
-            if (containsTrigger(lowercasedText, intentSpeedTriggers)) return ParsedCommand(Command.INTENT_CHANGE_SPEED)
+            // 3.5 Look for Scroll commands
+            if (containsTrigger(normalizedText, scrollDownTriggers)) return ParsedCommand(Command.SCROLL_DOWN)
+            if (containsTrigger(normalizedText, scrollUpTriggers)) return ParsedCommand(Command.SCROLL_UP)
 
-            if (containsTrigger(lowercasedText, repeatTriggers)) return ParsedCommand(Command.REPEAT)
+            // 4. Check for intent commands for the settings dialog
+            if (containsTrigger(normalizedText, intentNameTriggers)) return ParsedCommand(Command.INTENT_CHANGE_NAME)
+            if (containsTrigger(normalizedText, intentLanguageTriggers)) return ParsedCommand(Command.INTENT_CHANGE_LANGUAGE)
+            if (containsTrigger(normalizedText, intentSpeedTriggers)) return ParsedCommand(Command.INTENT_CHANGE_SPEED)
+
+            if (containsTrigger(normalizedText, repeatTriggers)) return ParsedCommand(Command.REPEAT)
 
             // 5. Look for the general "settings" command
-            if (containsTrigger(lowercasedText, settingsTriggers)) return ParsedCommand(Command.OPEN_SETTINGS)
+            if (containsTrigger(normalizedText, settingsTriggers)) return ParsedCommand(Command.OPEN_SETTINGS)
         }
 
         return ParsedCommand(Command.UNKNOWN)
     }
 
     private fun normalize(text: String): String {
-        return text.replace(" на ", " ").replace(" to ", " ")
+        // 1. Replace known prepositions/connectors with spaces to keep words separate
+        var res = text.replace(" на ", " ").replace(" to ", " ")
+        // 2. Remove ANY character that is NOT a letter, number, or whitespace.
+        // This strips *, #, ?, !, -, ', etc.
+        res = res.replace(Regex("[^\\p{L}\\p{N}\\s]+"), "")
+        return res.trim()
     }
 
     private fun containsTrigger(text: String, triggers: Set<String>): Boolean {

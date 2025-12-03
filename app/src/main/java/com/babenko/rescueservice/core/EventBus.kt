@@ -20,6 +20,9 @@ data class GlobalActionEvent(val actionId: Int) : AppEvent()
 
 data class ScrollEvent(val direction: String) : AppEvent()
 
+// Event to indicate that a long-running operation is in progress
+data class ProcessingStateChanged(val isProcessing: Boolean) : AppEvent()
+
 
 /**
  * A singleton EventBus for exchanging messages between application components.
